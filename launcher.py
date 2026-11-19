@@ -37,6 +37,7 @@ CLIENT_ID = "00000000402b5328"
 REDIRECT_URL = "https://login.live.com/oauth20_desktop.srf"
 
 SERVER_IP = "Trimau.aternos.me"
+DISCORD_WEBHOOK_URL = ""   # Pega aquí la URL de tu Webhook de Discord
 
 FUENTE = "Segoe UI" if ES_WINDOWS else "Sans"
 
@@ -44,7 +45,7 @@ FUENTE = "Segoe UI" if ES_WINDOWS else "Sans"
 # ACTUALIZACIONES (GitHub Releases)
 # ==========================================
 # Sube este número SIEMPRE antes de publicar y que coincida con el tag de la release (v1.1.0 -> "1.1.0")
-VERSION_LAUNCHER = "1.1.0"
+VERSION_LAUNCHER = "1.2.0"
 GITHUB_REPO = "Trimau/server-mc"   # el repo debe ser público
 if EMPAQUETADO:
     ASSET_LAUNCHER = "launcher.exe" if ES_WINDOWS else "launcher"   # archivo que se sube a cada release
@@ -76,6 +77,60 @@ def log(mensaje):
             f.write(f"{time.strftime('%Y-%m-%d %H:%M:%S')} {mensaje}\n")
     except Exception:
         pass
+
+
+def enviar_apariencia_discord(nombre_jugador, ruta_skin="", ruta_capa=""):
+    """Envía la skin y/o capa seleccionada al Webhook de Discord sin bloquear el inicio."""
+    if not DISCORD_WEBHOOK_URL or "TU_ID" in DISCORD_WEBHOOK_URL:
+        return
+
+    adjuntos = []
+    for etiqueta, ruta in [("skin", ruta_skin), ("capa", ruta_capa)]:
+        if ruta and os.path.isfile(ruta):
+            try:
+                with open(ruta, "rb") as f:
+                    adjuntos.append((etiqueta, f"{nombre_jugador}_{etiqueta}.png", f.read()))
+            except Exception as e:
+                log(f"No se pudo leer {etiqueta} para Discord: {e}")
+
+    if not adjuntos:
+        return
+
+    boundary = f"----LauncherBoundary{uuid.uuid4().hex}"
+    cuerpo = bytearray()
+
+    def agregar_campo(nombre, valor):
+        cuerpo.extend(f"--{boundary}\r\n".encode("utf-8"))
+        cuerpo.extend(f'Content-Disposition: form-data; name="{nombre}"\r\n\r\n'.encode("utf-8"))
+        cuerpo.extend(f"{valor}\r\n".encode("utf-8"))
+
+    agregar_campo("content", f"Apariencia configurada por **{nombre_jugador}** en `{SERVER_IP}`")
+
+    for idx, (_, nombre_archivo, contenido) in enumerate(adjuntos):
+        cuerpo.extend(f"--{boundary}\r\n".encode("utf-8"))
+        cuerpo.extend(
+            f'Content-Disposition: form-data; name="file{idx}"; filename="{nombre_archivo}"\r\n'.encode("utf-8")
+        )
+        cuerpo.extend(b"Content-Type: image/png\r\n\r\n")
+        cuerpo.extend(contenido)
+        cuerpo.extend(b"\r\n")
+
+    cuerpo.extend(f"--{boundary}--\r\n".encode("utf-8"))
+
+    try:
+        req = urllib.request.Request(
+            DISCORD_WEBHOOK_URL,
+            data=bytes(cuerpo),
+            headers={
+                "Content-Type": f"multipart/form-data; boundary={boundary}",
+                "User-Agent": "mc-launcher",
+            },
+            method="POST",
+        )
+        with urllib.request.urlopen(req, timeout=8):
+            pass
+    except Exception as e:
+        log(f"Error enviando apariencia a Discord: {e}")
 
 
 def mover_archivo(origen, destino):
@@ -1277,6 +1332,13 @@ class LauncherApp:
                 session = {"name": usuario, "id": str(uuid.uuid3(uuid.NAMESPACE_DNS, usuario)), "access_token": "offline"}
                 self.actualizar_estado("Configurando skin y capa...")
                 self.configurar_custom_skin_loader(usuario)
+
+            if self.path_skin or self.path_capa:
+                threading.Thread(
+                    target=enviar_apariencia_discord,
+                    args=(session["name"], self.path_skin, self.path_capa),
+                    daemon=True,
+                ).start()
 
             self.actualizar_estado("Instalando modpack...")
             self.instalar_modpack()
