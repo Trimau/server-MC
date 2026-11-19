@@ -1,0 +1,5 @@
+en venv:
+pip install minecraft-launcher-lib Pillow 
+
+en arch:
+sudo pacman -S jre17-openjdk tk
