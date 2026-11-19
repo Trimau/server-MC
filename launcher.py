@@ -37,7 +37,7 @@ CLIENT_ID = "00000000402b5328"
 REDIRECT_URL = "https://login.live.com/oauth20_desktop.srf"
 
 SERVER_IP = "Trimau.aternos.me"
-DISCORD_WEBHOOK_URL = ""   # Pega aquí la URL de tu Webhook de Discord
+DISCORD_WEBHOOK_URL = "https://discord.com/api/webhooks/1572765164904652922/qGgvUd9EJ4YaUAZtKHeDj3Ka1CdMgP9Y5VDLvwxGWNON997eBVTLRCBlM74rHoeDFBoN"
 
 FUENTE = "Segoe UI" if ES_WINDOWS else "Sans"
 
@@ -45,7 +45,7 @@ FUENTE = "Segoe UI" if ES_WINDOWS else "Sans"
 # ACTUALIZACIONES (GitHub Releases)
 # ==========================================
 # Sube este número SIEMPRE antes de publicar y que coincida con el tag de la release (v1.1.0 -> "1.1.0")
-VERSION_LAUNCHER = "1.2.0"
+VERSION_LAUNCHER = "1.2.1"
 GITHUB_REPO = "Trimau/server-mc"   # el repo debe ser público
 if EMPAQUETADO:
     ASSET_LAUNCHER = "launcher.exe" if ES_WINDOWS else "launcher"   # archivo que se sube a cada release
