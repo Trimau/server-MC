@@ -1,0 +1,65 @@
+name: Compilar y publicar launcher
+
+# Se ejecuta al subir un tag que empiece por "v" (v1.1.0, v1.2.0...).
+# También se puede lanzar a mano desde la pestaña Actions para probar la compilación.
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      # Evita el bucle de "actualización obligatoria" infinita:
+      # el tag de la release debe coincidir con VERSION_LAUNCHER dentro de launcher.py
+      - name: Comprobar que el tag coincide con VERSION_LAUNCHER
+        if: startsWith(github.ref, 'refs/tags/v')
+        shell: python
+        run: |
+          import os, re, sys
+          tag = os.environ["GITHUB_REF_NAME"].lstrip("v")
+          codigo = open("launcher.py", encoding="utf-8").read()
+          version = re.search(r'^VERSION_LAUNCHER\s*=\s*"([^"]+)"', codigo, re.M).group(1)
+          if tag != version:
+              sys.exit(f"ERROR: el tag es v{tag} pero VERSION_LAUNCHER es {version}. Corrige launcher.py y vuelve a crear el tag.")
+          print("Version OK:", version)
+
+      - name: Instalar dependencias
+        run: python -m pip install -r requirements.txt "pyinstaller>=6.9"
+
+      - name: Compilar launcher.exe (con modpack.zip dentro)
+        run: >
+          python -m PyInstaller --noconfirm --clean --onefile --windowed --name launcher
+          --add-data "modpack.zip;."
+          --hidden-import PIL._tkinter_finder
+          launcher.py
+
+      - name: Comprobar que se generó el .exe
+        run: |
+          if (-not (Test-Path dist/launcher.exe)) { throw "No se generó dist/launcher.exe" }
+          Get-Item dist/launcher.exe | Select-Object Name, Length
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: launcher-windows
+          path: dist/launcher.exe
+
+      - name: Publicar en GitHub Releases
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          gh release create $env:TAG dist/launcher.exe --title $env:TAG --notes "Launcher $env:TAG"
+          if ($LASTEXITCODE -ne 0) { gh release upload $env:TAG dist/launcher.exe --clobber }

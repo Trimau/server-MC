@@ -1,0 +1,15 @@
+# datos locales del jugador (incluye el token de Microsoft)
+launcher_config.json
+launcher.log
+
+# resultado de compilar
+build/
+dist/
+*.spec
+
+# temporales de la auto-actualización
+*.new
+*.old
+*.part
+
+__pycache__/
